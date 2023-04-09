@@ -3,55 +3,51 @@ Utilities for integrating MIDI and transformer.
 """
 
 import os
-from threading import Thread
+from multiprocessing import Process
 
 import mido
+import torch
 from tqdm import tqdm
 
+DT = 0.12
+THREADS = 32
 TMPDIR = "/tmp/PianoML"
 os.makedirs(TMPDIR, exist_ok=True)
 
 
-"""
-def _process_data(files: list[str]):
-    for f in files:
-        mid = mido.MidiFile(f)
-        tokens = tokenize_midi(mid)
-        with open(os.path.join(TMPDIR, os.path.basename(f)), "w") as f:
-            f.write("\n".join(map(str, tokens)))
+def get_dataset_worker(jobs, dt):
+    for file in jobs:
+        mid = mido.MidiFile(file)
+        tokens = tokenize_midi(mid, dt)
+        tokens = torch.tensor(tokens, dtype=torch.uint8)
+        out_file = os.path.join(TMPDIR, os.path.basename(file))
+        torch.save(tokens, out_file)
 
-def get_dataset(dir: str):
+def get_dataset(dir: str, dt: float = DT) -> torch.Tensor:
     files = []
-    for f in os.listdir(dir):
-        if f.endswith(".mid"):
-            files.append(os.path.join(dir, f))
-
-    threads = 16
-    thread_files = [files[i::threads] for i in range(threads)]
-    threads = [Thread(target=_process_data, args=(f,)) for f in thread_files]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-
-    tokens = []
-    for f in files:
-        with open(os.path.join(TMPDIR, os.path.basename(f)), "r") as f:
-            tokens.append(list(map(int, f.read().splitlines())))
-    return tokens
-"""
-
-
-def get_dataset(dir: str, dt: float = 0.1):
-    tokens = []
-    for file in tqdm(os.listdir(dir), desc="Loading MIDI"):
+    for file in os.listdir(dir):
         if file.endswith(".mid"):
-            mid = mido.MidiFile(os.path.join(dir, file))
-            tokens += tokenize_midi(mid, dt)
-    return tokens
+            files.append(os.path.join("data", file))
+
+    threads = []
+    for i in range(THREADS):
+        t = Process(target=get_dataset_worker, args=(files[i::THREADS], dt))
+        threads.append(t)
+        t.start()
+
+    pbar = tqdm(total=len(files), desc="Processing MIDI")
+    while any(t.is_alive() for t in threads):
+        num_done = len(os.listdir(TMPDIR))
+        pbar.update(num_done - pbar.n)
+    pbar.close()
+
+    all_data = []
+    for file in os.listdir(TMPDIR):
+        all_data.append(torch.load(os.path.join(TMPDIR, file)))
+    return torch.cat(all_data)
 
 
-def tokenize_interval(midi: mido.MidiFile, interval, dt: float = 0.1):
+def tokenize_interval(midi: mido.MidiFile, interval, dt: float = DT):
     """
     Chop up midi into timestamps of const time (eg 0.1sec) and see which messages play
     at each time.
@@ -97,7 +93,7 @@ def filter_tokens(tokens, max_consec=2):
             new_tokens.append(token)
     return new_tokens
 
-def tokenize_midi(midi, dt: float = 0.1):
+def tokenize_midi(midi, dt: float = DT):
     intervals = (
         (0, 31),
         (16, 47),
@@ -131,5 +127,5 @@ def events_to_midi(events):
 
 
 if __name__ == "__main__":
-    mid = mido.MidiFile("test.mid")
-    print(tokenize_midi(mid))
+    data = get_dataset("data", 0.12)
+    torch.save(data, "results/all_data.pt")

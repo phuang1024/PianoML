@@ -102,9 +102,9 @@ test_data = data_process(test_iter)
 from midi import get_dataset
 print("Loading midi data...")
 #all_data = torch.tensor(get_dataset("data", 0.12))
-#torch.save(all_data, "all_data.pt")
-if os.path.isfile("all_data.pt"):
-    all_data = torch.load("all_data.pt")
+#torch.save(all_data, "results/all_data.pt")
+if os.path.isfile("results/all_data.pt"):
+    all_data = torch.load("results/all_data.pt")
 else:
     all_data = torch.tensor([0])
 print("MIDI:", len(all_data), "tokens")
@@ -178,7 +178,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.92)
 epochs = 100
 
-logfile = open("log.txt", "w")
+logfile = open("results/log.txt", "w")
 
 def train(model: nn.Module) -> None:
     model.train()  # turn on train mode
@@ -238,8 +238,8 @@ if __name__ == "__main__":
         print("Training start.")
         num_params = sum(p.numel() for p in model.parameters())
         print(f"Number of parameters: {num_params}")
-        #print("Resuming from model.pt")
-        #model.load_state_dict(torch.load("model.pt"))
+        #print("Resuming from results/model.pt")
+        #model.load_state_dict(torch.load("results/model.pt"))
 
         for epoch in range(1, epochs + 1):
             epoch_start_time = time.time()
@@ -259,8 +259,8 @@ if __name__ == "__main__":
                 torch.save(model.state_dict(), best_model_params_path)
 
             scheduler.step()
-            print("Saving to model.pt")
-            torch.save(model.state_dict(), "model.pt")
+            print("Saving to results/model.pt")
+            torch.save(model.state_dict(), "results/model.pt")
 
         model.load_state_dict(torch.load(best_model_params_path)) # load best model states
 
