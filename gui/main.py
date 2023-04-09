@@ -11,7 +11,7 @@ from sequencer import Sequencer
 def main():
     buttons = Buttons()
     piano = Piano()
-    sequencer = Sequencer()
+    sequencer = Sequencer(buttons, piano)
 
     surface = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("Piano ML")

@@ -17,12 +17,12 @@ class Piano:
 
     def keys_pressed(self):
         keys = pygame.key.get_pressed()
-        pressed = []
+        pressed = set()
         for i, key in enumerate(self.key_mapping):
             if keys[ord(key)]:
                 key = i + self.octave*12 - 9
                 if 0 <= key < 88:
-                    pressed.append(key)
+                    pressed.add(key)
         return pressed
 
     def update(self, surface, events):
