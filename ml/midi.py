@@ -18,7 +18,11 @@ os.makedirs(TMPDIR, exist_ok=True)
 def get_dataset_worker(jobs, dt):
     for file in jobs:
         mid = mido.MidiFile(file)
-        tokens = tokenize_midi(mid, dt)
+        try:
+            tokens = tokenize_midi(mid, dt)
+        except Exception as e:
+            print(f"Error processing {file}: {e}")
+            continue
         tokens = torch.tensor(tokens, dtype=torch.uint8)
         out_file = os.path.join(TMPDIR, os.path.basename(file))
         torch.save(tokens, out_file)
@@ -36,9 +40,14 @@ def get_dataset(dir: str, dt: float = DT) -> torch.Tensor:
         t.start()
 
     pbar = tqdm(total=len(files), desc="Processing MIDI")
-    while any(t.is_alive() for t in threads):
-        num_done = len(os.listdir(TMPDIR))
-        pbar.update(num_done - pbar.n)
+    try:
+        while any(t.is_alive() for t in threads):
+            num_done = len(os.listdir(TMPDIR))
+            pbar.update(num_done - pbar.n)
+    except KeyboardInterrupt:
+        for t in threads:
+            t.terminate()
+        print("KeyboardInterrupt; compiling current data...")
     pbar.close()
 
     all_data = []

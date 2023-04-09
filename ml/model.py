@@ -104,9 +104,9 @@ print("Loading midi data...")
 #all_data = torch.tensor(get_dataset("data", 0.12))
 #torch.save(all_data, "results/all_data.pt")
 if os.path.isfile("results/all_data.pt"):
-    all_data = torch.load("results/all_data.pt")
+    all_data = torch.load("results/all_data.pt").long()
 else:
-    all_data = torch.tensor([0])
+    all_data = torch.tensor([0], dtype=torch.long)
 print("MIDI:", len(all_data), "tokens")
 #stop
 
