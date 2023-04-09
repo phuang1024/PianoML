@@ -106,7 +106,7 @@ class Sequencer:
         if self.playing:
             for i in range(len(self.audio_played)):
                 t = self.messages[i][1]
-                if self.play_start_ptr <= t and t <= self.pointer:
+                if 10*self.play_start_ptr <= t and t <= 10*self.pointer:
                     if not self.audio_played[i]:
                         pygame.mixer.Sound.play(AUDIO[self.messages[i][0]])
                         self.audio_played[i] = True
