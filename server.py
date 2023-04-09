@@ -24,31 +24,18 @@ Response is:
 """
 
 import json
-import os
 import struct
 import time
 from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM
-from subprocess import Popen
 
 import mido
 
 from midi import events_to_midi
+from net import recv
 from run import main as run_main
 
-PORT = 7608
-
-
-def recv(conn, length: int):
-    data = b""
-    tries = 0
-    while len(data) < length:
-        time.sleep(0.002)
-        data += conn.recv(length - len(data))
-        tries += 1
-        if tries > 1000:
-            raise Exception("recv timeout")
-    return data
+PORT = 7609
 
 
 def handle_client(conn):
@@ -57,22 +44,25 @@ def handle_client(conn):
     if data["type"] == "autocomplete":
         events = []
         for note in data["data"]:
-            events.append((note[1], note[0], 1))
-            events.append((note[2], note[0], 0))
+            events.append((note[1], int(note[0]), 1))
+            events.append((note[2], int(note[0]), 0))
         events.sort(key=lambda x: x[0])
+        print(events)
         midi = events_to_midi(events)
         midi.save("server.mid")
-        run_main("server.mid", "pred.mid")
+        run_main("server.mid", "pred.mid", 16)
 
         midi = mido.MidiFile("pred.mid")
         messages = []
         starts = {}
+        time = 0
         for msg in midi:
+            time += msg.time
             if msg.type == "note_on":
-                starts[msg.note] = msg.time
+                starts[msg.note] = time
             elif msg.type == "note_off":
                 if msg.note in starts:
-                    messages.append((msg.note, starts[msg.note], msg.time))
+                    messages.append((msg.note, starts[msg.note], time))
                     del starts[msg.note]
 
         data = json.dumps({"data": messages})
@@ -84,6 +74,7 @@ def main():
     sock = socket(AF_INET, SOCK_STREAM)
     sock.bind(("", PORT))
     sock.listen()
+    print("Listening on port", PORT)
     while True:
         conn, addr = sock.accept()
         print("Connection from", addr)

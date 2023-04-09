@@ -15,8 +15,6 @@ from midi import tokenize_interval, events_to_midi
 from model import *
 from model import args as model_args
 
-PREDICT_LEN = 300
-
 
 class TemperedSoftmax(torch.nn.Module):
     def __init__(self, temp: float = 1):
@@ -27,8 +25,8 @@ class TemperedSoftmax(torch.nn.Module):
         return F.softmax(x * self.temp, dim=-1)
 
 
-def main(input, output):
-    midi = mido.MidiFile(input)
+def main(input_path, output_path, length):
+    midi = mido.MidiFile(input_path)
     src = tokenize_interval(midi, (0, 127))
     src = torch.tensor(src).unsqueeze(1)
     model.load_state_dict(torch.load("model.pt"))
@@ -37,14 +35,16 @@ def main(input, output):
     preds = []
     src_mask = generate_square_subsequent_mask(src.size(0)).to(device)
     sigmoid = TemperedSoftmax(temp=1)
-    for _ in trange(PREDICT_LEN):
+    for _ in trange(length):
         output = model(src, src_mask)
         pred = output[-1].squeeze().cpu().detach()
         pred = sigmoid(pred).numpy()
 
+        """
         plt.clf()
         plt.plot(pred)
         plt.pause(.01)
+        """
 
         pred = np.random.choice(128, p=pred)
         #pred[0] *= 0.5
@@ -71,17 +71,18 @@ def main(input, output):
     count = 0
     dt = model_args.dt
     for msg in messages:
-        events.append((count, dt*msg[0], True))
+        events.append((dt*count, msg[0], True))
         count += msg[1]
-        events.append((count, dt*msg[0], False))
+        events.append((dt*count, msg[0], False))
 
     midi = events_to_midi(events)
-    midi.save(output)
+    midi.save(output_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input", help="Input MIDI file")
     parser.add_argument("output", help="Output MIDI file")
+    parser.add_argument("--length", default=16)
     args = parser.parse_args()
-    main(args.input, args.output)
+    main(args.input, args.output, args.length)

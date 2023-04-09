@@ -125,6 +125,7 @@ def events_to_midi(events):
         time = 0 if i == 0 else event[0] - events[i-1][0]
         time = int(time * midi.ticks_per_beat * 2)
         type_ = "note_on" if event[2] and event[1] != 0 else "note_off"
+        print(type_, event[1], time)
         track.append(mido.Message(type=type_, note=event[1], time=time))
     return midi
 
