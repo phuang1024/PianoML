@@ -113,6 +113,22 @@ def tokenize_midi(midi, dt: float = 0.1):
     return tokens
 
 
+def events_to_midi(events):
+    """
+    :param events: List of (timestamp, note, on/off (true/false))
+    """
+    midi = mido.MidiFile()
+    track = mido.MidiTrack()
+    midi.tracks.append(track)
+    track.append(mido.MetaMessage("set_tempo", tempo=500000))
+    for i, event in enumerate(events):
+        time = 0 if i == 0 else event[0] - events[i-1][0]
+        time = int(time * midi.ticks_per_beat * 2)
+        type_ = "note_on" if event[2] and event[1] != 0 else "note_off"
+        track.append(mido.Message(type=type_, note=event[1], time=time))
+    return midi
+
+
 if __name__ == "__main__":
     mid = mido.MidiFile("test.mid")
     print(tokenize_midi(mid))

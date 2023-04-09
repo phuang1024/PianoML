@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from tqdm import trange
 
-from midi import tokenize_interval
+from midi import tokenize_interval, events_to_midi
 from model import *
 from model import args as model_args
 
@@ -27,13 +27,8 @@ class TemperedSoftmax(torch.nn.Module):
         return F.softmax(x * self.temp, dim=-1)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("input", help="Input MIDI file")
-    parser.add_argument("output", help="Output MIDI file")
-    args = parser.parse_args()
-
-    midi = mido.MidiFile(args.input)
+def main(input, output):
+    midi = mido.MidiFile(input)
     src = tokenize_interval(midi, (0, 127))
     src = torch.tensor(src).unsqueeze(1)
     model.load_state_dict(torch.load("model.pt"))
@@ -74,23 +69,19 @@ def main():
     # List of (timestamp, note, on/off (true/false))
     events = []
     count = 0
+    dt = model_args.dt
     for msg in messages:
-        events.append((count, msg[0], True))
+        events.append((count, dt*msg[0], True))
         count += msg[1]
-        events.append((count, msg[0], False))
+        events.append((count, dt*msg[0], False))
 
-    midi = mido.MidiFile()
-    track = mido.MidiTrack()
-    midi.tracks.append(track)
-    track.append(mido.MetaMessage("set_tempo", tempo=500000))
-    for i, event in enumerate(events):
-        time = 0 if i == 0 else event[0] - events[i-1][0]
-        time = int(time * model_args.dt * midi.ticks_per_beat * 2)
-        type_ = "note_on" if event[2] and event[1] != 0 else "note_off"
-        track.append(mido.Message(type=type_, note=event[1], time=time))
-        print(track[-1])
-    midi.save(args.output)
+    midi = events_to_midi(events)
+    midi.save(output)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input", help="Input MIDI file")
+    parser.add_argument("output", help="Output MIDI file")
+    args = parser.parse_args()
+    main(args.input, args.output)
