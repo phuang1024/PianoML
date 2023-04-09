@@ -83,6 +83,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input", help="Input MIDI file")
     parser.add_argument("output", help="Output MIDI file")
-    parser.add_argument("--length", default=16)
+    parser.add_argument("--length", default=16, type=int)
     args = parser.parse_args()
     main(args.input, args.output, args.length)
