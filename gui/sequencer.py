@@ -13,12 +13,12 @@ AUDIO = [pygame.mixer.Sound(os.path.join(ROOT, "audio", f"{i}.mp3")) for i in ra
 class Sequencer:
     """
     Draws y = 51 to 500
-    Range 0 to 10 seconds
     """
 
-    def __init__(self, buttons, piano):
+    def __init__(self, buttons, piano, duration=30):
         self.buttons = buttons
         self.piano = piano
+        self.duration = duration
 
         # List of (note, start, end)
         self.messages = []
@@ -33,13 +33,11 @@ class Sequencer:
         self.play_start_time = 0
         self.play_start_ptr = 0
 
-    @staticmethod
-    def ch_to_y(ch):
+    def ch_to_y(self, ch):
         return int(ch / 88 * 450 + 51)
 
-    @staticmethod
-    def t_to_x(t):
-        return int(t / 10 * 1280)
+    def t_to_x(self, t):
+        return int(t / self.duration * 1280)
 
     def update(self, surface, events):
         mouse_pos = pygame.mouse.get_pos()
@@ -55,7 +53,7 @@ class Sequencer:
         for ch in range(3, 89, 12):
             y = self.ch_to_y(ch)
             pygame.draw.line(surface, (100, 100, 100), (0, y), (1280, y), 1)
-        for t in range(11):
+        for t in range(int(self.duration+1)):
             x = self.t_to_x(t)
             pygame.draw.line(surface, (100, 100, 100), (x, 51), (x, 500), 1)
 
@@ -95,7 +93,7 @@ class Sequencer:
         # Set ptr for playing
         if self.playing:
             timestamp = time.time() - self.play_start_time
-            pointer = self.play_start_ptr + timestamp / 10
+            pointer = self.play_start_ptr + timestamp / self.duration
             if pointer > 1:
                 self.playing = False
                 self.recording = False
@@ -106,7 +104,7 @@ class Sequencer:
         if self.playing:
             for i in range(len(self.audio_played)):
                 t = self.messages[i][1]
-                if 10*self.play_start_ptr <= t and t <= 10*self.pointer:
+                if self.duration*self.play_start_ptr <= t and t <= self.duration*self.pointer:
                     if not self.audio_played[i]:
                         pygame.mixer.Sound.play(AUDIO[self.messages[i][0]])
                         self.audio_played[i] = True
@@ -118,7 +116,7 @@ class Sequencer:
             to_del = []
             for k, v in self.pending_messages.items():
                 if k not in pressed:
-                    self.messages.append((k, v*10, self.pointer*10))
+                    self.messages.append((k, v*self.duration, self.pointer*self.duration))
                     to_del.append(k)
             for k in to_del:
                 del self.pending_messages[k]
@@ -149,5 +147,5 @@ class Sequencer:
                     for line in f.read().strip().split("\n"):
                         parts = line.split(" ")
                         msg = (int(parts[0]), float(parts[1])+last_time, float(parts[2])+last_time)
-                        if 0 <= msg[1] and msg[2] <= 10 and 0 <= msg[0] < 88:
+                        if 0 <= msg[1] and msg[2] <= self.duration and 0 <= msg[0] < 88:
                             self.messages.append(msg)

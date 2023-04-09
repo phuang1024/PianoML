@@ -1,8 +1,13 @@
 import argparse
 import json
+import os
 import struct
+import sys
 import time
 from socket import socket, AF_INET, SOCK_STREAM
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(ROOT, "ml"))
 
 from net import recv
 
