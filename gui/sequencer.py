@@ -7,6 +7,8 @@ import pygame
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
+AUDIO = [pygame.mixer.Sound(os.path.join(ROOT, "audio", f"{i}.mp3")) for i in range(88)]
+
 
 class Sequencer:
     """
@@ -22,12 +24,14 @@ class Sequencer:
         self.messages = []
         # For recording
         self.pending_messages = {}
+        # Initialized when starting playing/recording
+        self.audio_played = []
         self.pointer = 0
         # This is True in both playing and recording
         self.playing = False
         self.recording = False
-        self.record_start_time = 0
-        self.record_start_ptr = 0
+        self.play_start_time = 0
+        self.play_start_ptr = 0
 
     @staticmethod
     def ch_to_y(ch):
@@ -77,24 +81,35 @@ class Sequencer:
             if self.buttons.stop.is_clicked(events):
                 self.playing = False
                 self.recording = False
+                pygame.mixer.music.stop()
         else:
             if (rec := self.buttons.record.is_clicked(events)) or self.buttons.play.is_clicked(events):
                 if rec:
                     self.recording = True
                     self.pending_messages = {}
                 self.playing = True
-                self.record_start_time = time.time()
-                self.record_start_ptr = self.pointer
+                self.play_start_time = time.time()
+                self.play_start_ptr = self.pointer
+                self.audio_played = [False] * len(self.messages)
 
         # Set ptr for playing
         if self.playing:
-            timestamp = time.time() - self.record_start_time
-            pointer = self.record_start_ptr + timestamp / 10
+            timestamp = time.time() - self.play_start_time
+            pointer = self.play_start_ptr + timestamp / 10
             if pointer > 1:
                 self.playing = False
                 self.recording = False
                 pointer = 1
             self.pointer = pointer
+
+        # Check for playing audio
+        if self.playing:
+            for i in range(len(self.audio_played)):
+                t = self.messages[i][1]
+                if self.play_start_ptr <= t and t <= self.pointer:
+                    if not self.audio_played[i]:
+                        pygame.mixer.Sound.play(AUDIO[self.messages[i][0]])
+                        self.audio_played[i] = True
 
         # Recording
         if self.recording:
@@ -111,6 +126,7 @@ class Sequencer:
             for p in pressed:
                 if p not in self.pending_messages:
                     self.pending_messages[p] = self.pointer
+                    pygame.mixer.Sound.play(AUDIO[p])
 
         # Autocomplete
         if not self.playing and self.buttons.complete.is_clicked(events):

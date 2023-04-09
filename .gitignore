@@ -3,5 +3,6 @@
 *.jpg
 *.txt
 *.pt
+!*/audio/*
 __pycache__
 data
