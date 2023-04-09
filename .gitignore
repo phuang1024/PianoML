@@ -1,0 +1,7 @@
+*.mp3
+*.mid
+*.jpg
+*.txt
+*.pt
+__pycache__
+data
