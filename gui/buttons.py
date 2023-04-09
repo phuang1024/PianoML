@@ -37,13 +37,15 @@ class TextButton:
 
 class Buttons:
     def __init__(self):
-        self.play = TextButton(256, 25, "Play")
-        self.record = TextButton(512, 25, "Record")
-        self.stop = TextButton(768, 25, "Stop")
-        self.complete = TextButton(1024, 25, "Autocomplete")
+        self.play = TextButton(213, 25, "Play")
+        self.record = TextButton(427, 25, "Record")
+        self.stop = TextButton(640, 25, "Stop")
+        self.complete = TextButton(853, 25, "Autocomplete")
+        self.clear = TextButton(1067, 25, "Clear")
 
     def update(self, surface, events):
         self.play.draw(surface, events)
         self.record.draw(surface, events)
         self.stop.draw(surface, events)
         self.complete.draw(surface, events)
+        self.clear.draw(surface, events)

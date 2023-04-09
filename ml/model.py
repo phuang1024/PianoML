@@ -13,10 +13,10 @@ from torch.utils.data import dataset
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dt", help="dt for MIDI tokenizing", type=float, default=0.13)
-    parser.add_argument("--netsize", help="Feedfoward network size", type=int, default=512)
+    parser.add_argument("--netsize", help="Feedfoward network size", type=int, default=256)
     args = parser.parse_args()
 else:
-    args = argparse.Namespace(dt=0.13, netsize=512)
+    args = argparse.Namespace(dt=0.13, netsize=256)
 
 #confusion_matrix = torch.zeros((128, 128), dtype=torch.int32)
 
@@ -170,7 +170,7 @@ def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
 ntokens = 128
 emsize = 32  # embedding dimension
 d_hid = args.netsize  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 2  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nlayers = 3  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 2  # number of heads in nn.MultiheadAttention
 dropout = 0.2  # dropout probability
 model = TransformerModel(ntokens, emsize, nhead, d_hid, nlayers, dropout).to(device)

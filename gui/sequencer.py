@@ -128,6 +128,10 @@ class Sequencer:
                     self.pending_messages[p] = self.pointer
                     pygame.mixer.Sound.play(AUDIO[p])
 
+        # Clear
+        if not self.playing and self.buttons.clear.is_clicked(events):
+            self.messages = []
+
         # Autocomplete
         if not self.playing and self.buttons.complete.is_clicked(events):
             # Serialize messages to file
