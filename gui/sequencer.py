@@ -47,5 +47,5 @@ class Sequencer:
 
         # Update
         # Pointer
-        if mouse_press[0]:
+        if mouse_press[0] and 51 <= mouse_pos[1] <= 500:
             self.pointer = mouse_pos[0] / 1280

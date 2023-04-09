@@ -3,11 +3,13 @@ import time
 import pygame
 pygame.init()
 
+from buttons import Buttons
 from piano import Piano
 from sequencer import Sequencer
 
 
 def main():
+    buttons = Buttons()
     piano = Piano()
     sequencer = Sequencer()
 
@@ -23,6 +25,7 @@ def main():
                 run = False
 
         surface.fill((0, 0, 0))
+        buttons.update(surface, events)
         piano.update(surface, events)
         sequencer.update(surface, events)
 
