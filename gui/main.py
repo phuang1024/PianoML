@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import pygame
@@ -9,9 +10,13 @@ from sequencer import Sequencer
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", type=str, default="localhost")
+    args = parser.parse_args()
+
     buttons = Buttons()
     piano = Piano()
-    sequencer = Sequencer(buttons, piano)
+    sequencer = Sequencer(buttons, piano, args.ip)
 
     surface = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("Piano ML")

@@ -11,7 +11,6 @@ sys.path.append(os.path.join(ROOT, "ml"))
 
 from net import recv
 
-IP = "10.232.37.109"
 PORT = 7609
 
 
@@ -46,10 +45,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", help="Input messages file parsed by a function")
     parser.add_argument("output")
+    parser.add_argument("--ip", default="localhost")
     args = parser.parse_args()
 
     sock = socket(AF_INET, SOCK_STREAM)
-    sock.connect((IP, PORT))
+    sock.connect((args.ip, PORT))
     msgs = parse_input(args.input)
     data = json.dumps({"type": "autocomplete", "data": msgs}).encode("utf-8")
     sock.send(struct.pack("<I", len(data)))

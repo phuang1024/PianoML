@@ -1,0 +1,6 @@
+torch
+torchtext
+torchdata
+pygame
+tqdm
+mido

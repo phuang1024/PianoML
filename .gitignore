@@ -3,6 +3,7 @@
 *.jpg
 *.txt
 *.pt
+!requirements.txt
 !*/audio/*
 __pycache__
 data

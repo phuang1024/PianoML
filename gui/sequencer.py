@@ -15,9 +15,10 @@ class Sequencer:
     Draws y = 51 to 500
     """
 
-    def __init__(self, buttons, piano, duration=30):
+    def __init__(self, buttons, piano, ip, duration=30):
         self.buttons = buttons
         self.piano = piano
+        self.ip = ip
         self.duration = duration
 
         # List of (note, start, end)
@@ -138,7 +139,7 @@ class Sequencer:
                     f.write(f"{msg[0]} {msg[1]} {msg[2]}")
 
             # Call completion
-            proc = run([sys.executable, os.path.join(ROOT, "client.py"), os.path.join(ROOT, "in.txt"), os.path.join(ROOT, "out.txt")])
+            proc = run([sys.executable, os.path.join(ROOT, "client.py"), os.path.join(ROOT, "in.txt"), os.path.join(ROOT, "out.txt"), "--ip", self.ip])
             if proc.returncode != 0:
                 print("Error in calling completion.")
             else:
