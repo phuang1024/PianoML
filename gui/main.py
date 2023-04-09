@@ -3,10 +3,12 @@ import time
 import pygame
 pygame.init()
 
+from piano import Piano
 from sequencer import Sequencer
 
 
 def main():
+    piano = Piano()
     sequencer = Sequencer()
 
     surface = pygame.display.set_mode((1280, 720))
@@ -21,6 +23,7 @@ def main():
                 run = False
 
         surface.fill((0, 0, 0))
+        piano.update(surface, events)
         sequencer.update(surface, events)
 
         # Area separators
