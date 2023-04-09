@@ -10,16 +10,6 @@ import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch.utils.data import dataset
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dt", help="dt for MIDI tokenizing", type=float, default=0.13)
-    parser.add_argument("--netsize", help="Feedfoward network size", type=int, default=256)
-    args = parser.parse_args()
-else:
-    args = argparse.Namespace(dt=0.13, netsize=256)
-
-#confusion_matrix = torch.zeros((128, 128), dtype=torch.int32)
-
 
 class TransformerModel(nn.Module):
 
@@ -111,7 +101,7 @@ test_data = data_process(test_iter)
 
 from midi import get_dataset
 print("Loading midi data...")
-#all_data = torch.tensor(get_dataset("data", args.dt))
+#all_data = torch.tensor(get_dataset("data", 0.12))
 #torch.save(all_data, "all_data.pt")
 if os.path.isfile("all_data.pt"):
     all_data = torch.load("all_data.pt")
@@ -145,7 +135,7 @@ def batchify(data: Tensor, bsz: int) -> Tensor:
     data = data.view(bsz, seq_len).t().contiguous()
     return data.to(device)
 
-batch_size = 16
+batch_size = 128
 eval_batch_size = 10
 train_data = batchify(train_data, batch_size)  # shape [seq_len, batch_size]
 val_data = batchify(val_data, eval_batch_size)
@@ -172,8 +162,8 @@ def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
 #ntokens = len(vocab)  # size of vocabulary
 ntokens = 128
 emsize = 32  # embedding dimension
-d_hid = args.netsize  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 3  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+d_hid = 1024  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 2  # number of heads in nn.MultiheadAttention
 dropout = 0.2  # dropout probability
 model = TransformerModel(ntokens, emsize, nhead, d_hid, nlayers, dropout).to(device)
@@ -185,8 +175,8 @@ import time
 criterion = nn.CrossEntropyLoss()
 lr = 1  # learning rate
 optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
-epochs = 300
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.92)
+epochs = 100
 
 logfile = open("log.txt", "w")
 
@@ -245,6 +235,9 @@ if __name__ == "__main__":
     with TemporaryDirectory() as tempdir:
         best_model_params_path = os.path.join(tempdir, "best_model_params.pt")
 
+        print("Training start.")
+        num_params = sum(p.numel() for p in model.parameters())
+        print(f"Number of parameters: {num_params}")
         #print("Resuming from model.pt")
         #model.load_state_dict(torch.load("model.pt"))
 
