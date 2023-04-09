@@ -1,6 +1,11 @@
+import os
+import sys
 import time
+from subprocess import run
 
 import pygame
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 class Sequencer:
@@ -106,3 +111,23 @@ class Sequencer:
             for p in pressed:
                 if p not in self.pending_messages:
                     self.pending_messages[p] = self.pointer
+
+        # Autocomplete
+        if not self.playing and self.buttons.complete.is_clicked(events):
+            # Serialize messages to file
+            with open(os.path.join(ROOT, "in.txt"), "w") as f:
+                for msg in self.messages:
+                    f.write(f"{msg[0]} {msg[1]} {msg[2]}")
+
+            # Call completion
+            proc = run([sys.executable, os.path.join(ROOT, "client.py"), os.path.join(ROOT, "in.txt"), os.path.join(ROOT, "out.txt")])
+            if proc.returncode != 0:
+                print("Error in calling completion.")
+            else:
+                last_time = max([msg[2] for msg in self.messages]) if self.messages else 0
+                with open(os.path.join(ROOT, "out.txt")) as f:
+                    for line in f.read().strip().split("\n"):
+                        parts = line.split(" ")
+                        msg = (int(parts[0]), float(parts[1])+last_time, float(parts[2])+last_time)
+                        if 0 <= msg[1] and msg[2] <= 10 and 0 <= msg[0] < 88:
+                            self.messages.append(msg)
