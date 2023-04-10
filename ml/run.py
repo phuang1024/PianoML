@@ -11,9 +11,8 @@ import numpy as np
 import torch
 from tqdm import trange
 
-from midi import tokenize_interval, events_to_midi
+from midi import tokenize_interval, events_to_midi, DT
 from model import *
-from model import args as model_args
 
 
 class TemperedSoftmax(torch.nn.Module):
@@ -28,8 +27,8 @@ class TemperedSoftmax(torch.nn.Module):
 def main(input_path, output_path, length):
     midi = mido.MidiFile(input_path)
     src = tokenize_interval(midi, (0, 127))
-    src = torch.tensor(src).unsqueeze(1)
-    model.load_state_dict(torch.load("model.pt"))
+    src = torch.tensor(src, device=device).unsqueeze(1)
+    model.load_state_dict(torch.load("results/model.pt"))
     print(src.shape)
 
     preds = []
@@ -69,11 +68,10 @@ def main(input_path, output_path, length):
     # List of (timestamp, note, on/off (true/false))
     events = []
     count = 0
-    dt = model_args.dt
     for msg in messages:
-        events.append((dt*count, msg[0], True))
+        events.append((DT*count, msg[0], True))
         count += msg[1]
-        events.append((dt*count, msg[0], False))
+        events.append((DT*count, msg[0], False))
 
     midi = events_to_midi(events)
     midi.save(output_path)

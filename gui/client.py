@@ -11,7 +11,7 @@ sys.path.append(os.path.join(ROOT, "ml"))
 
 from net import recv
 
-PORT = 7609
+PORT = 7610
 
 
 def parse_input(path):

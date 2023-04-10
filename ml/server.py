@@ -35,7 +35,7 @@ from midi import events_to_midi
 from net import recv
 from run import main as run_main
 
-PORT = 7609
+PORT = 7610
 
 
 def handle_client(conn):

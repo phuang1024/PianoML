@@ -136,13 +136,13 @@ def batchify(data: Tensor, bsz: int) -> Tensor:
     return data.to(device)
 
 batch_size = 128
-eval_batch_size = 10
+eval_batch_size = 32
 train_data = batchify(train_data, batch_size)  # shape [seq_len, batch_size]
 val_data = batchify(val_data, eval_batch_size)
 test_data = batchify(test_data, eval_batch_size)
 
 
-bptt = 35
+bptt = 64
 def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
     """
     Args:
@@ -173,10 +173,10 @@ import copy
 import time
 
 criterion = nn.CrossEntropyLoss()
-lr = 1  # learning rate
+lr = 0.1  # learning rate
 optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.92)
-epochs = 100
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.85)
+epochs = 40
 
 logfile = open("results/log.txt", "w")
 
