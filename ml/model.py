@@ -4,11 +4,16 @@ import os
 from tempfile import TemporaryDirectory
 from typing import Tuple
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch.utils.data import dataset
+
+confusion_matrix = np.zeros((128, 128), dtype=int)
 
 
 class TransformerModel(nn.Module):
@@ -75,6 +80,47 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+class ScheduledOptim():
+    # From https://github.com/jadore801120/attention-is-all-you-need-pytorch/
+    '''A simple wrapper class for learning rate scheduling'''
+
+    def __init__(self, optimizer, lr_mul, d_model, n_warmup_steps):
+        self._optimizer = optimizer
+        self.lr_mul = lr_mul
+        self.d_model = d_model
+        self.n_warmup_steps = n_warmup_steps
+        self.n_steps = 0
+
+
+    def step_and_update_lr(self):
+        "Step with the inner optimizer"
+        self._update_learning_rate()
+        self._optimizer.step()
+
+    def get_last_lr(self):
+        return self._optimizer.param_groups[0]['lr']
+
+    def zero_grad(self):
+        "Zero out the gradients with the inner optimizer"
+        self._optimizer.zero_grad()
+
+
+    def _get_lr_scale(self):
+        d_model = self.d_model
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return (d_model ** -0.5) * min(n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5))
+
+
+    def _update_learning_rate(self):
+        ''' Learning rate scheduling per step '''
+
+        self.n_steps += 1
+        lr = self.lr_mul * self._get_lr_scale()
+
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
+
+
 from torchtext.datasets import WikiText2
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator
@@ -135,7 +181,7 @@ def batchify(data: Tensor, bsz: int) -> Tensor:
     data = data.view(bsz, seq_len).t().contiguous()
     return data.to(device)
 
-batch_size = 128
+batch_size = 64
 eval_batch_size = 32
 train_data = batchify(train_data, batch_size)  # shape [seq_len, batch_size]
 val_data = batchify(val_data, eval_batch_size)
@@ -156,16 +202,23 @@ def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
     seq_len = min(bptt, len(source) - 1 - i)
     data = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len].reshape(-1)
+
+    # Target contains actual tokens; now we one-hot encode it
+    target = torch.nn.functional.one_hot(target, num_classes=ntokens).float()
+    # Smoothing
+    target = target * (1 - label_smoothing) + label_smoothing / ntokens
+
     return data, target
 
 
 #ntokens = len(vocab)  # size of vocabulary
 ntokens = 128
-emsize = 32  # embedding dimension
-d_hid = 1024  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 12  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 2  # number of heads in nn.MultiheadAttention
-dropout = 0.2  # dropout probability
+emsize = 512  # embedding dimension, and relational database dimensionality
+d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 6  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nhead = 4  # number of heads in nn.MultiheadAttention
+dropout = 0.1  # dropout probability
+label_smoothing = 0.1
 model = TransformerModel(ntokens, emsize, nhead, d_hid, nlayers, dropout).to(device)
 
 
@@ -173,14 +226,13 @@ import copy
 import time
 
 criterion = nn.CrossEntropyLoss()
-lr = 0.1  # learning rate
-optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.85)
-epochs = 40
+# Copying "Attention is all you need"
+optimizer = torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
+scheduler = ScheduledOptim(optimizer, 1, emsize, 4000)
+epochs = 200
 
-logfile = open("results/log.txt", "w")
 
-def train(model: nn.Module) -> None:
+def train(model: nn.Module, epoch) -> None:
     model.train()  # turn on train mode
     total_loss = 0.
     log_interval = 200
@@ -199,16 +251,19 @@ def train(model: nn.Module) -> None:
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-        optimizer.step()
+        #optimizer.step()
+        scheduler.step_and_update_lr()
+
+        logtrain.write(f"{loss.item()}, {scheduler.get_last_lr()}\n")
 
         total_loss += loss.item()
         if batch % log_interval == 0 and batch > 0:
-            lr = scheduler.get_last_lr()[0]
+            lr = scheduler.get_last_lr()
             ms_per_batch = (time.time() - start_time) * 1000 / log_interval
             cur_loss = total_loss / log_interval
             ppl = math.exp(cur_loss)
             print(f'| epoch {epoch:3d} | {batch:5d}/{num_batches:5d} batches | '
-                  f'lr {lr:.5f} | ms/batch {ms_per_batch:5.2f} | '
+                  f'lr {lr:.6f} | ms/batch {ms_per_batch:5.2f} | '
                   f'loss {cur_loss:5.2f} | ppl {ppl:8.2f}')
             total_loss = 0
             start_time = time.time()
@@ -226,10 +281,19 @@ def evaluate(model: nn.Module, eval_data: Tensor) -> float:
             output = model(data, src_mask)
             output_flat = output.view(-1, ntokens)
             total_loss += seq_len * criterion(output_flat, targets).item()
+
+            # Update confusion matrix
+            """
+            for j in range(output_flat.size(0)):
+                pred = output_flat[j].argmax().item()
+                actual = targets[j].item()
+                confusion_matrix[actual, pred] += 1
+            """
+
     return total_loss / (len(eval_data) - 1)
 
 
-if __name__ == "__main__":
+def main_training_loop():
     best_val_loss = float('inf')
 
     with TemporaryDirectory() as tempdir:
@@ -237,13 +301,15 @@ if __name__ == "__main__":
 
         print("Training start.")
         num_params = sum(p.numel() for p in model.parameters())
-        print(f"Number of parameters: {num_params}")
+        print(f"Number of learnable parameters: {num_params}")
         #print("Resuming from results/model.pt")
         #model.load_state_dict(torch.load("results/model.pt"))
 
         for epoch in range(1, epochs + 1):
+            confusion_matrix.fill(0)
+
             epoch_start_time = time.time()
-            train(model)
+            train(model, epoch)
             val_loss = evaluate(model, val_data)
             val_ppl = math.exp(val_loss)
             elapsed = time.time() - epoch_start_time
@@ -251,14 +317,21 @@ if __name__ == "__main__":
             print(f'| end of epoch {epoch:3d} | time: {elapsed:5.2f}s | '
                 f'valid loss {val_loss:5.2f} | valid ppl {val_ppl:8.2f}')
             print('-' * 89)
-            logfile.write(str(val_loss) + "\n")
+
+            logval.write(f"{val_loss}\n")
             #logfile.flush()
+
+            """
+            plt.clf()
+            plt.imshow(confusion_matrix)
+            plt.savefig("results/confusion_matrix.jpg")
+            """
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 torch.save(model.state_dict(), best_model_params_path)
 
-            scheduler.step()
+            #scheduler.step()
             print("Saving to results/model.pt")
             torch.save(model.state_dict(), "results/model.pt")
 
@@ -271,3 +344,10 @@ if __name__ == "__main__":
     print(f'| End of training | test loss {test_loss:5.2f} | '
           f'test ppl {test_ppl:8.2f}')
     print('=' * 89)
+
+
+if __name__ == "__main__":
+    with open("results/logval.csv", "w") as logval, open("results/logtrain.csv", "w") as logtrain:
+        logval.write("loss\n")
+        logtrain.write("loss, lr\n")
+        main_training_loop()
