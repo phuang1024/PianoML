@@ -206,16 +206,16 @@ def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
     # Target contains actual tokens; now we one-hot encode it
     target = torch.nn.functional.one_hot(target, num_classes=ntokens).float()
     # Smoothing
-    target = target * (1 - label_smoothing) + label_smoothing / ntokens
+    #target = target * (1 - label_smoothing) + label_smoothing / ntokens
 
     return data, target
 
 
 #ntokens = len(vocab)  # size of vocabulary
 ntokens = 128
-emsize = 512  # embedding dimension, and relational database dimensionality
-d_hid = 512  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 6  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+emsize = 256  # embedding dimension, and relational database dimensionality
+d_hid = 256  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 4  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 4  # number of heads in nn.MultiheadAttention
 dropout = 0.1  # dropout probability
 label_smoothing = 0.1
@@ -227,12 +227,17 @@ import time
 
 criterion = nn.CrossEntropyLoss()
 # Copying "Attention is all you need"
-optimizer = torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
-scheduler = ScheduledOptim(optimizer, 1, emsize, 4000)
-epochs = 200
+optimizer = torch.optim.SGD(model.parameters(), lr=1)
+#scheduler = ScheduledOptim(optimizer, 15, emsize, 4000)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.65)
+epochs = 20
+
+curr_batch_num = 0
 
 
 def train(model: nn.Module, epoch) -> None:
+    global curr_batch_num
+
     model.train()  # turn on train mode
     total_loss = 0.
     log_interval = 200
@@ -251,14 +256,16 @@ def train(model: nn.Module, epoch) -> None:
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-        #optimizer.step()
-        scheduler.step_and_update_lr()
+        optimizer.step()
+        #scheduler.step_and_update_lr()
 
-        logtrain.write(f"{loss.item()}, {scheduler.get_last_lr()}\n")
+        if curr_batch_num >= 3:
+            logtrain.write(f"{loss.item()},{scheduler.get_last_lr()[0]}\n")
+        curr_batch_num += 1
 
         total_loss += loss.item()
         if batch % log_interval == 0 and batch > 0:
-            lr = scheduler.get_last_lr()
+            lr = scheduler.get_last_lr()[0]
             ms_per_batch = (time.time() - start_time) * 1000 / log_interval
             cur_loss = total_loss / log_interval
             ppl = math.exp(cur_loss)
@@ -331,7 +338,7 @@ def main_training_loop():
                 best_val_loss = val_loss
                 torch.save(model.state_dict(), best_model_params_path)
 
-            #scheduler.step()
+            scheduler.step()
             print("Saving to results/model.pt")
             torch.save(model.state_dict(), "results/model.pt")
 
@@ -349,5 +356,5 @@ def main_training_loop():
 if __name__ == "__main__":
     with open("results/logval.csv", "w") as logval, open("results/logtrain.csv", "w") as logtrain:
         logval.write("loss\n")
-        logtrain.write("loss, lr\n")
+        logtrain.write("loss,lr\n")
         main_training_loop()
