@@ -1,5 +1,7 @@
 # Piano ML
 
+Hackathon project by [PeaceOfPi](@PeaceOfPi), [Sinha-Soumik](@Sinha-Soumik), [The-Senate-I-Am](@The-Senate-I-Am), and [phuang1024](@phuang1024)
+
 ## Running Locally
 
 ```bash
