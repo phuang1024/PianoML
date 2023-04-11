@@ -1,6 +1,10 @@
 # Piano ML
 
-Hackathon project by [PeaceOfPi](@PeaceOfPi), [Sinha-Soumik](@Sinha-Soumik), [The-Senate-I-Am](@The-Senate-I-Am), and [phuang1024](@phuang1024)
+Hackathon project by
+[PeaceOfPi](https://github.com/PeaceOfPi),
+[Sinha-Soumik](https://github.com/Sinha-Soumik),
+[The-Senate-I-Am](https://github.com/The-Senate-I-Am),
+and [phuang1024](https://github.com/phuang1024)
 
 ## Running Locally
 
