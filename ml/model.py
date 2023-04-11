@@ -213,12 +213,12 @@ def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
 
 #ntokens = len(vocab)  # size of vocabulary
 ntokens = 128
-emsize = 256  # embedding dimension, and relational database dimensionality
-d_hid = 256  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 4  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+emsize = 1024  # embedding dimension, and relational database dimensionality
+d_hid = 1024  # dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 8  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 4  # number of heads in nn.MultiheadAttention
 dropout = 0.1  # dropout probability
-label_smoothing = 0.1
+#label_smoothing = 0.1
 model = TransformerModel(ntokens, emsize, nhead, d_hid, nlayers, dropout).to(device)
 
 
@@ -229,8 +229,8 @@ criterion = nn.CrossEntropyLoss()
 # Copying "Attention is all you need"
 optimizer = torch.optim.SGD(model.parameters(), lr=1)
 #scheduler = ScheduledOptim(optimizer, 15, emsize, 4000)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.65)
-epochs = 20
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.8)
+epochs = 50
 
 curr_batch_num = 0
 

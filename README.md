@@ -11,8 +11,17 @@ pip install -r requirements.txt
 The ML autocomplete program is run as a server separate from the GUI. (They could be run
 from the same computer.)
 
+You also need to obtain a model. I have trained a model, which you can download at this link
+
+https://drive.google.com/file/d/1zXGMuueuYocWr0hC9wyOJsqzEnHa8h3k/view?usp=share_link
+
 ```bash
 cd ml
+
+# Save model to this file:
+mkdir results
+mv /path/to/model.pt results/model.pt
+
 python server.py
 ```
 
