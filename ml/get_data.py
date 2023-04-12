@@ -7,7 +7,15 @@ import mido
 import torch
 from tqdm import tqdm
 
+from midi import *
+
 URL = "https://www.midiworld.com/download/{}"
+
+
+def file_counter(directory, ext):
+    def func():
+        return len([f for f in os.listdir(directory) if f.endswith(ext)])
+    return func
 
 
 def multiprocess(target, num_jobs, args, total, progress, desc=""):
@@ -58,7 +66,6 @@ def binsearch():
         else:
             max = mid
 
-
 def download_worker(outdir, jobs):
     """
     Download MIDI files.
@@ -86,7 +93,6 @@ def download_worker(outdir, jobs):
                 if isinstance(e, KeyboardInterrupt):
                     raise
 
-
 def download(args):
     count = args.c
     if count < 0:
@@ -95,15 +101,37 @@ def download(args):
     print(f"Downloading {count} MIDI files.")
 
     files = list(range(1, count+1))
-    jobs = [files[i::args.j] for i in range(args.j)]
-    worker_args = list(zip([args.output] * args.j, jobs))
+    worker_args = [files[i::args.j] for i in range(args.j)]
+    worker_args = list(zip([args.output]*args.j, worker_args))
 
-    multiprocess(download_worker, args.j, worker_args, count, lambda: len(os.listdir(args.output)), "Downloading")
+    multiprocess(download_worker, args.j, worker_args, count, file_counter(args.output, ".mid"), "Downloading")
 
+
+def tokenize_worker(files):
+    """
+    Saves tokens as pytorch tensor to file+".pt"
+    """
+    for f in files:
+        midi = mido.MidiFile(f)
+        tokens = msgs_to_tokens(midi_to_msgs(midi))
+        with open(f+".pt", "wb") as fp:
+            torch.save(tokens, fp)
 
 def tokenize(args):
     files = [f for f in os.listdir(args.output) if f.endswith(".mid")]
-    print(f"Tokenizing {len(files)} MIDI files. Saving pytorch tensor to {args.output}/tokens.pt")
+    print(f"Tokenizing {len(files)} MIDI files.")
+    files = [os.path.join(args.output, f) for f in files]
+    worker_args = [[files[i::args.j]] for i in range(args.j)]
+    multiprocess(tokenize_worker, args.j, worker_args, len(files), file_counter(args.output, ".pt"), "Tokenizing")
+
+    print(f"Combining tokens into {args.output}/tokens.pt")
+    tokens = torch.zeros((0, 131))
+    for f in files:
+        with open(f+".pt", "rb") as fp:
+            curr_tokens = torch.load(fp)
+            tokens = torch.cat((tokens, curr_tokens), dim=0)
+    with open(os.path.join(args.output, "tokens.pt"), "wb") as fp:
+        torch.save(tokens, fp)
 
 
 def main():
