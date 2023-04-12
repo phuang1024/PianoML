@@ -188,7 +188,7 @@ val_data = batchify(val_data, eval_batch_size)
 test_data = batchify(test_data, eval_batch_size)
 
 
-bptt = 64
+bptt = 128
 def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
     """
     Args:
@@ -213,9 +213,9 @@ def get_batch(source: Tensor, i: int) -> Tuple[Tensor, Tensor]:
 
 #ntokens = len(vocab)  # size of vocabulary
 ntokens = 128
-emsize = 1024  # embedding dimension, and relational database dimensionality
+emsize = 512  # embedding dimension, and relational database dimensionality
 d_hid = 1024  # dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 8  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nlayers = 6  # number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 4  # number of heads in nn.MultiheadAttention
 dropout = 0.1  # dropout probability
 #label_smoothing = 0.1
@@ -226,17 +226,16 @@ import copy
 import time
 
 criterion = nn.CrossEntropyLoss()
-# Copying "Attention is all you need"
 optimizer = torch.optim.SGD(model.parameters(), lr=1)
 #scheduler = ScheduledOptim(optimizer, 15, emsize, 4000)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.8)
-epochs = 50
+epochs = 20
 
-curr_batch_num = 0
+#curr_batch_num = 0
 
 
-def train(model: nn.Module, epoch) -> None:
-    global curr_batch_num
+def train(model, epoch) -> None:
+    #global curr_batch_num
 
     model.train()  # turn on train mode
     total_loss = 0.
@@ -259,9 +258,9 @@ def train(model: nn.Module, epoch) -> None:
         optimizer.step()
         #scheduler.step_and_update_lr()
 
-        if curr_batch_num >= 3:
-            logtrain.write(f"{loss.item()},{scheduler.get_last_lr()[0]}\n")
-        curr_batch_num += 1
+        #if curr_batch_num >= 3:
+        logtrain.write(f"{loss.item()},{scheduler.get_last_lr()[0]}\n")
+        #curr_batch_num += 1
 
         total_loss += loss.item()
         if batch % log_interval == 0 and batch > 0:
