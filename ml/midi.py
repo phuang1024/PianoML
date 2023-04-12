@@ -5,13 +5,15 @@ TODO this doesn't work actually; how do we release notes?
 
 MIDI is stored with mido.MidiFile objects.
 Messages are represented with AbsMessage objects.
-Tokens are arrays of length 257 (128 + 128 + 1):
-- First 128 is probability of note i playing.
-- Second 128 is velocity of each note.
-- Last is time after previous chord.
+Tokens are arrays of length 131 (128 + 3), each representing one message.
+- First 128 is probability of note i playing. Choose highest.
+- Next 2 is start, end, in absolute seconds.
+- Last is velocity, in 0-1.
 """
 
 import mido
+
+import torch
 
 
 class AbsMessage:
@@ -26,10 +28,10 @@ class AbsMessage:
     end: float
 
     def __init__(self, note=0, velocity=0, start=0, end=0):
-        self.note = note
-        self.velocity = velocity
-        self.start = start
-        self.end = end
+        self.note = int(note)
+        self.velocity = float(velocity)
+        self.start = float(start)
+        self.end = float(end)
 
     def __repr__(self):
         return f"AbsMessage(note={self.note}, velocity={self.velocity}, start={self.start}, end={self.end})"
@@ -74,10 +76,28 @@ def msgs_to_midi(msgs: list[AbsMessage], ticks_per_beat=480):
     return midi
 
 
-def msgs_to_tokens(msgs: list[AbsMessage], threshold: float = 0.05):
+def msgs_to_tokens(msgs: list[AbsMessage]) -> torch.Tensor:
     """
-    :param threshold: Messages closer than this are considered one concurrent chord.
-        Message start time is used.
+    :return: Shape (num_msgs, 131)
     """
-    groups = []
-    start_i = None
+    tokens = torch.zeros((len(msgs), 131))
+    for i, msg in enumerate(msgs):
+        tokens[i, msg.note] = 1
+        tokens[i, 128] = msg.start
+        tokens[i, 129] = msg.end
+        tokens[i, 130] = msg.velocity
+    return tokens
+
+
+def tokens_to_msgs(tokens: torch.Tensor) -> list[AbsMessage]:
+    """
+    Highest probability note is picked.
+    """
+    msgs = []
+    for i in range(tokens.size(0)):
+        note = torch.argmax(tokens[i, :128])
+        start = tokens[i, 128]
+        end = tokens[i, 129]
+        velocity = tokens[i, 130]
+        msgs.append(AbsMessage(note, velocity, start, end))
+    return msgs
