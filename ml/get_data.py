@@ -1,47 +1,46 @@
-import os
-from threading import Thread
-
-import mido
+import argparse
 import requests
-from tqdm import tqdm
 
-THREADS = 32
-OUTDIR = "data"
+import ipyparallel as ipp
+
+URL = "https://www.midiworld.com/download/{}"
 
 
-def download(offset):
-    i = offset
-    while True:
+def binsearch():
+    """
+    Find number of MIDI files available.
+    """
+    def works(n):
+        url = URL.format(n)
         try:
-            r = requests.get(f"https://www.midiworld.com/download/{i}", timeout=1)
+            r = requests.get(url)
         except requests.exceptions.ConnectionError:
-            break
-        if r.status_code == 200:
-            with open(f"{OUTDIR}/{i}.mid", "wb") as f:
-                f.write(r.content)
-        i += THREADS
+            return False
+        return r.status_code == 200
+
+    min = 1
+    max = 8000
+    while True:
+        if max - min <= 1:
+            if works(max):
+                return max
+            return min
+        mid = (min + max) // 2
+        if works(mid):
+            min = mid
+        else:
+            max = mid
+
 
 def main():
-    threads = []
-    for i in range(THREADS):
-        thread = Thread(target=download, args=(i,))
-        thread.start()
-        threads.append(thread)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("output", help="Output directory.")
+    parser.add_argument("-j", type=int, default=8)
+    args = parser.parse_args()
 
-    pbar = tqdm(desc="Downloading")
-    while any([thread.is_alive() for thread in threads]):
-        num_done = len(os.listdir(OUTDIR))
-        pbar.update(num_done - pbar.n)
-    pbar.close()
-
-    bad = 0
-    for f in tqdm(os.listdir(OUTDIR), desc="Checking consistency"):
-        try:
-            mido.MidiFile(os.path.join(OUTDIR, f))
-        except:
-            os.remove(os.path.join(OUTDIR, f))
-            bad += 1
-    print(f"Removed {bad} bad files")
+    print("Searching for number of MIDI files...")
+    n = binsearch()
+    print(f"Found {n} MIDI files.")
 
 
 if __name__ == "__main__":
