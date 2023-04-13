@@ -85,7 +85,8 @@ def download_worker(outdir, jobs):
 
             # Check consistency
             try:
-                mido.MidiFile(path)
+                midi = mido.MidiFile(path)
+                tokens = msgs_to_tokens(midi_to_msgs(midi))
             except Exception as e:
                 os.remove(path)
                 print(f"Error on MIDI {i}: {e}")
@@ -105,6 +106,8 @@ def download(args):
     worker_args = list(zip([args.output]*args.j, worker_args))
 
     multiprocess(download_worker, args.j, worker_args, count, file_counter(args.output, ".mid"), "Downloading")
+
+    print(f"Downloaded {count} MIDI files to {args.output}.")
 
 
 def tokenize_worker(files):
