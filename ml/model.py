@@ -25,6 +25,11 @@ class Model(nn.Module):
     def __init__(self):
         super().__init__()
 
+        self.input = nn.Sequential(
+            nn.Linear(131, D_FF),
+            nn.ReLU(),
+            nn.Linear(D_FF, D_MODEL),
+        )
         self.transformer = nn.Transformer(
             d_model=D_MODEL,
             nhead=N_HEAD,
@@ -34,11 +39,13 @@ class Model(nn.Module):
             batch_first=True,
             dropout=DROPOUT,
         )
-        self.head = nn.Sequential(
+        self.output = nn.Sequential(
             nn.Linear(D_MODEL, 131),
         )
 
     def forward(self, x, y):
+        x = self.input(x)
+        y = self.input(y)
         x = self.transformer(x, y)
-        x = self.head(x)
+        x = self.output(x)
         return x

@@ -1,7 +1,10 @@
 import argparse
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 from tqdm import tqdm
 
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 
@@ -9,23 +12,16 @@ from constants import *
 from model import TokenDataset, Model
 
 
-def foreach_batch(epoch, loader, model, criterion, optim, train: bool):
-    total_loss = 0
-    pbar = tqdm(enumerate(loader), total=len(loader), desc="Training" if train else "Testing", ascii=True)
+def forward_batch(loader, model, criterion, epoch: int, train: bool):
+    name = "Train" if train else "Test"
+    pbar = tqdm(enumerate(loader), total=len(loader), desc=name)
     for i, (x, y) in pbar:
         x, y = x.to(DEVICE), y.to(DEVICE)
-        print(x.shape, y.shape)
         y_hat = model(x, x)
         loss = criterion(y_hat, y)
-        if train:
-            loss.backward()
-            optim.step()
-            optim.zero_grad()
+        pbar.set_description(f"{name}: Epoch {epoch+1}/{EPOCHS} | Batch {i+1}/{len(loader)} | Loss {loss.item():.5f}")
 
-        total_loss += loss.item()
-        pbar.set_description(f"Epoch {epoch}/{EPOCHS} | Batch {i}/{len(loader)} | Loss {loss.item()}")
-
-    return total_loss
+        yield loss
 
 def train(model, dataset):
     train_len = int(len(dataset) * 0.9)
@@ -39,18 +35,32 @@ def train(model, dataset):
     test_loader = DataLoader(test_dataset, **loader_args)
 
     criterion = torch.nn.MSELoss()
-    optim = torch.optim.SGD(model.parameters(), lr=1)
+    optim = torch.optim.SGD(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=LR_DECAY_STEPS, gamma=LR_DECAY_FAC)
     log = SummaryWriter()
 
+    step = 0
     for epoch in range(EPOCHS):
         model.train()
-        total_loss = foreach_batch(epoch, train_loader, model, criterion, optim, True)
-        log.add_scalar("TrainLoss", total_loss, epoch)
+        for loss in forward_batch(train_loader, model, criterion, epoch, True):
+            loss.backward()
+            clip_grad_norm_(model.parameters(), 0.5)
+            optim.step()
+            optim.zero_grad()
+            scheduler.step()
+
+            log.add_scalar("Train loss", loss.item(), step)
+            log.add_scalar("LR", scheduler.get_last_lr()[0], step)
+
+            step += 1
 
         with torch.no_grad():
             model.eval()
-            total_loss = foreach_batch(epoch, test_loader, model, criterion, optim, False)
-            log.add_scalar("TestLoss", total_loss, epoch)
+            total_loss = 0
+            for loss in forward_batch(test_loader, model, criterion, epoch, False):
+                total_loss += loss.item()
+            avg_loss = total_loss / len(test_loader)
+            log.add_scalar("Test loss", avg_loss, step)
 
 
 def main():
@@ -58,7 +68,7 @@ def main():
     parser.add_argument("--data", type=str, required=True, help="Path to .pt data file")
     args = parser.parse_args()
 
-    model = Model()
+    model = Model().to(DEVICE)
     dataset = TokenDataset(args.data)
     print(f"Dataset: {len(dataset)} batches of length {SEQ_LEN}")
     train(model, dataset)
