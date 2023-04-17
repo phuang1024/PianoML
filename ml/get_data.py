@@ -125,20 +125,11 @@ def tokenize(args):
     worker_args = [[files[i::args.j]] for i in range(args.j)]
     multiprocess(tokenize_worker, args.j, worker_args, len(files), file_counter(args.output, ".pt"), "Tokenizing")
 
-    print(f"Combining tokens into {args.output}/tokens.pt")
-    tokens = torch.zeros((0,), dtype=torch.int16)
-    for f in tqdm(files, desc="Combining"):
-        with open(f+".pt", "rb") as fp:
-            curr_tokens = torch.load(fp)
-            tokens = torch.cat((tokens, curr_tokens), dim=0)
-    with open(os.path.join(args.output, "tokens.pt"), "wb") as fp:
-        torch.save(tokens, fp)
-
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("download", "tokenize"))
-    parser.add_argument("output", help="Output directory (download) or file (tokenize).")
+    parser.add_argument("output", help="Output directory")
     parser.add_argument("-c", type=int, default=-1, help="Num of files to process. Negative = all.")
     parser.add_argument("-j", type=int, default=8)
     args = parser.parse_args()

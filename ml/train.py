@@ -65,7 +65,7 @@ def train(model, dataset):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, required=True, help="Path to .pt data file")
+    parser.add_argument("--data", type=str, required=True, help="Path to data directory")
     args = parser.parse_args()
 
     model = Model().to(DEVICE)

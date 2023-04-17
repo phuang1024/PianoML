@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
@@ -6,19 +8,37 @@ from constants import *
 
 
 class TokenDataset(Dataset):
-    def __init__(self, data_path):
-        self.data_path = data_path
-        self.data = torch.load(data_path)
-        self.length = len(self.data) // SEQ_LEN
+    def __init__(self, directory):
+        self.files = [f for f in os.listdir(directory) if f.endswith(".pt")]
+        self.files = [os.path.join(directory, f) for f in self.files]
+
+        total_size = 0
+        for f in self.files:
+            total_size += torch.load(f).numel()
+
+        self.tokens = torch.zeros((total_size,), dtype=torch.int16)
+        ind = 0
+        for f in self.files:
+            curr_tokens = torch.load(f)
+            curr_len = curr_tokens.numel()
+            self.tokens[ind:ind+curr_len] = curr_tokens
+            ind += curr_len
+        self.tokens = self.tokens.to(torch.long)
+
+        self.length = (len(self.tokens)-1) // SEQ_LEN
+        self.onehot_size = 256 + TIME_SHIFT_COUNT + VELOCITY_COUNT
+        self.tokens = torch.clip(self.tokens, 0, self.onehot_size-1)
 
     def __len__(self):
         return self.length
 
     def __getitem__(self, idx):
         i = idx * SEQ_LEN
-        x = self.data[i : i+SEQ_LEN]
-        y = self.data[i+1 : i+SEQ_LEN+1]
-        return x, y
+        x = self.tokens[i : i+SEQ_LEN]
+        y = self.tokens[i+1 : i+SEQ_LEN+1]
+        x_oh = torch.nn.functional.one_hot(x, self.onehot_size)
+        y_oh = torch.nn.functional.one_hot(y, self.onehot_size)
+        return x_oh, y_oh
 
 
 class Model(nn.Module):
