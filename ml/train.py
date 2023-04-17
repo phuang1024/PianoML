@@ -12,6 +12,21 @@ from constants import *
 from model import TokenDataset, Model
 
 
+def get_run_directory(runs_dir):
+    """
+    Runs are runs_dir/000, /001, ...
+    """
+    max_num = None
+    for run in os.listdir(runs_dir):
+        if run.isdigit():
+            num = int(run)
+            if max_num is None or num > max_num:
+                max_num = num
+    if max_num is None:
+        max_num = -1
+    return os.path.join(runs_dir, f"{max_num+1:03d}")
+
+
 def forward_batch(loader, model, criterion, scheduler, epoch: int, train: bool):
     """
     :param scheduler, epoch, train: For printing only.
@@ -31,7 +46,8 @@ def forward_batch(loader, model, criterion, scheduler, epoch: int, train: bool):
         pbar.set_description(f"{name}: Epoch {epoch+1}/{EPOCHS} | Batch {i+1}/{len(loader)} | Loss {loss.item():.5f} | LR {lr:.5f}")
         yield loss
 
-def train(model, dataset):
+
+def train(model, dataset, logdir):
     train_len = int(len(dataset) * 0.9)
     test_len = len(dataset) - train_len
     train_dataset, test_dataset = random_split(dataset, [train_len, test_len])
@@ -45,7 +61,8 @@ def train(model, dataset):
     criterion = torch.nn.BCELoss()
     optim = torch.optim.SGD(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=LR_DECAY_STEPS, gamma=LR_DECAY_FAC)
-    log = SummaryWriter()
+    log = SummaryWriter(logdir)
+    print("Saving tensorboard logs to", logdir)
 
     step = 0
     for epoch in range(EPOCHS):
@@ -70,18 +87,27 @@ def train(model, dataset):
             avg_loss = total_loss / len(test_loader)
             log.add_scalar("Test loss", avg_loss, step)
 
+        torch.save(model.state_dict(), os.path.join(logdir, f"epoch{epoch+1}.pt"))
+
+    #sample = next(iter(test_loader))[0]
+    #log.add_graph(model, sample.to(DEVICE))
+    log.close()
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, required=True, help="Path to data directory")
+    parser.add_argument("--data", required=True, help="Path to data directory")
+    parser.add_argument("--runs", default="runs", help="Path to tensorboard runs directory")
     args = parser.parse_args()
 
     model = Model().to(DEVICE)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     dataset = TokenDataset(args.data)
-    print(f"Dataset: {len(dataset)} batches of length {SEQ_LEN}")
+    logdir = get_run_directory(args.runs)
+
+    print(f"Dataset: {len(dataset)} samples of length {SEQ_LEN}")
     print(f"Model: {num_params} learnable parameters")
-    train(model, dataset)
+    train(model, dataset, logdir)
 
 
 if __name__ == "__main__":
