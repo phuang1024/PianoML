@@ -12,15 +12,23 @@ from constants import *
 from model import TokenDataset, Model
 
 
-def forward_batch(loader, model, criterion, epoch: int, train: bool):
+def forward_batch(loader, model, criterion, scheduler, epoch: int, train: bool):
+    """
+    :param scheduler, epoch, train: For printing only.
+    """
     name = "Train" if train else "Test"
     pbar = tqdm(enumerate(loader), total=len(loader), desc=name)
     for i, (x, y) in pbar:
         x, y = x.to(DEVICE), y.to(DEVICE)
-        y_hat = model(x, x)
-        loss = criterion(y_hat, y)
-        pbar.set_description(f"{name}: Epoch {epoch+1}/{EPOCHS} | Batch {i+1}/{len(loader)} | Loss {loss.item():.5f}")
+        pred = model(x)
 
+        pred = pred.view(-1, ONEHOT_SIZE)
+        y = torch.nn.functional.one_hot(y.view(-1), ONEHOT_SIZE)
+        y = y.float()
+        loss = criterion(pred, y)
+
+        lr = scheduler.get_last_lr()[0]
+        pbar.set_description(f"{name}: Epoch {epoch+1}/{EPOCHS} | Batch {i+1}/{len(loader)} | Loss {loss.item():.5f} | LR {lr:.5f}")
         yield loss
 
 def train(model, dataset):
@@ -34,7 +42,7 @@ def train(model, dataset):
     train_loader = DataLoader(train_dataset, **loader_args)
     test_loader = DataLoader(test_dataset, **loader_args)
 
-    criterion = torch.nn.MSELoss()
+    criterion = torch.nn.BCELoss()
     optim = torch.optim.SGD(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=LR_DECAY_STEPS, gamma=LR_DECAY_FAC)
     log = SummaryWriter()
@@ -42,7 +50,7 @@ def train(model, dataset):
     step = 0
     for epoch in range(EPOCHS):
         model.train()
-        for loss in forward_batch(train_loader, model, criterion, epoch, True):
+        for loss in forward_batch(train_loader, model, criterion, scheduler, epoch, True):
             loss.backward()
             clip_grad_norm_(model.parameters(), 0.5)
             optim.step()
@@ -57,7 +65,7 @@ def train(model, dataset):
         with torch.no_grad():
             model.eval()
             total_loss = 0
-            for loss in forward_batch(test_loader, model, criterion, epoch, False):
+            for loss in forward_batch(test_loader, model, criterion, scheduler, epoch, False):
                 total_loss += loss.item()
             avg_loss = total_loss / len(test_loader)
             log.add_scalar("Test loss", avg_loss, step)
@@ -69,8 +77,10 @@ def main():
     args = parser.parse_args()
 
     model = Model().to(DEVICE)
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     dataset = TokenDataset(args.data)
     print(f"Dataset: {len(dataset)} batches of length {SEQ_LEN}")
+    print(f"Model: {num_params} learnable parameters")
     train(model, dataset)
 
 

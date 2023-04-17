@@ -8,6 +8,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIME_SHIFT_INC = 0.01
 TIME_SHIFT_COUNT = 100
 VELOCITY_COUNT = 32
+ONEHOT_SIZE = 128 + 128 + TIME_SHIFT_COUNT + VELOCITY_COUNT
 
 # Model hyperparameters
 DROPOUT = 0.1
@@ -16,7 +17,7 @@ D_MODEL = 256
 D_FF = 256
 N_HEAD = 2
 ENC_LAYERS = 4
-DEC_LAYERS = 4
+#DEC_LAYERS = 4
 
 # Training parameters
 BATCH_SIZE = 128
