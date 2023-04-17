@@ -111,12 +111,10 @@ def download(args):
 
 
 def tokenize_worker(files):
-    """
-    Saves tokens as pytorch tensor to file+".pt"
-    """
     for f in files:
         midi = mido.MidiFile(f)
         tokens = msgs_to_tokens(midi_to_msgs(midi))
+        tokens = torch.tensor(tokens, dtype=torch.int16)
         with open(f+".pt", "wb") as fp:
             torch.save(tokens, fp)
 
@@ -128,8 +126,8 @@ def tokenize(args):
     multiprocess(tokenize_worker, args.j, worker_args, len(files), file_counter(args.output, ".pt"), "Tokenizing")
 
     print(f"Combining tokens into {args.output}/tokens.pt")
-    tokens = torch.zeros((0, 131))
-    for f in files:
+    tokens = torch.zeros((0,), dtype=torch.int16)
+    for f in tqdm(files, desc="Combining"):
         with open(f+".pt", "rb") as fp:
             curr_tokens = torch.load(fp)
             tokens = torch.cat((tokens, curr_tokens), dim=0)

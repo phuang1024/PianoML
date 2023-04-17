@@ -4,16 +4,17 @@ Utilities for converting from MIDI to messages to tokens.
 TODO this doesn't work actually; how do we release notes?
 
 MIDI is stored with mido.MidiFile objects.
+
 Messages are represented with AbsMessage objects.
-Tokens are arrays of length 131 (128 + 3), each representing one message.
-- First 128 is probability of note i playing. Choose highest.
-- Next 2 is start, end, in absolute seconds.
-- Last is velocity, in 0-1.
+
+Tokens follow https://arxiv.org/pdf/1808.03715.pdf
+128 + 128 + TIME_SHIFT_COUNT + VELOCITY_COUNT
+one-hot
 """
 
 import mido
 
-import torch
+from constants import *
 
 
 class AbsMessage:
@@ -27,7 +28,7 @@ class AbsMessage:
     start: float
     end: float
 
-    def __init__(self, note=0, velocity=0, start=0, end=0):
+    def __init__(self, note: float = 0, velocity: float = 0, start: float = 0, end: float = 0):
         self.note = int(note)
         self.velocity = float(velocity)
         self.start = float(start)
@@ -39,14 +40,19 @@ class AbsMessage:
 
 def midi_to_msgs(midi: mido.MidiFile):
     starts = [None] * 128
+    velocities = [0] * 128
     msgs = []
+    time = 0
     for msg in midi:
-        if msg.type == "note_on":
-            starts[msg.note] = msg.time
-        elif msg.type == "note_off":
-            if starts[msg.note] is not None:
-                msgs.append(AbsMessage(msg.note, msg.velocity/127, starts[msg.note], msg.time))
-                starts[msg.note] = None
+        time += msg.time
+        if msg.type.startswith("note_"):
+            if msg.type == "note_on" and msg.velocity > 0:
+                starts[msg.note] = time
+                velocities[msg.note] = msg.velocity
+            else:
+                if starts[msg.note] is not None:
+                    msgs.append(AbsMessage(msg.note, velocities[msg.note]/127, starts[msg.note], time))
+                    starts[msg.note] = None
 
     return msgs
 
@@ -62,6 +68,7 @@ def msgs_to_midi(msgs: list[AbsMessage], ticks_per_beat=480):
     midi = mido.MidiFile(ticks_per_beat=ticks_per_beat)
     track = mido.MidiTrack()
     midi.tracks.append(track)
+    track.append(mido.MetaMessage("time_signature", numerator=4, denominator=4, time=0))
     track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
     for i, event in enumerate(events):
         dt = 0 if i == 0 else events[i][2] - events[i-1][2]
@@ -76,28 +83,70 @@ def msgs_to_midi(msgs: list[AbsMessage], ticks_per_beat=480):
     return midi
 
 
-def msgs_to_tokens(msgs: list[AbsMessage]) -> torch.Tensor:
+def msgs_to_tokens(msgs: list[AbsMessage]) -> list[int]:
     """
-    :return: Shape (num_msgs, 131)
+    First message is set to time 0
+    :return: List of ints. Each is the one-hot index.
     """
-    tokens = torch.zeros((len(msgs), 131))
-    for i, msg in enumerate(msgs):
-        tokens[i, msg.note] = 1
-        tokens[i, 128] = msg.start
-        tokens[i, 129] = msg.end
-        tokens[i, 130] = msg.velocity
+    # Temporary (note, velocity, time, on/off True/False)
+    # Velocity is 1 to VELOCITY_COUNT
+    events = []
+    for msg in msgs:
+        vel = int(msg.velocity * VELOCITY_COUNT)
+        events.append((msg.note, vel, msg.start, True))
+        events.append((msg.note, 0, msg.end, False))
+    events.sort(key=lambda x: x[2])
+
+    tokens = []
+    # 0 to VELOCITY_COUNT
+    velocity = None
+    # Encoded time is what the time would be, summing all time shift events.
+    # We keep this value to correct for cumulative drift.
+    # i.e. instead of only looking at curr msg's dt, we look at difference between absolute and encoded time.
+    encoded_time = 0
+    for i, event in enumerate(events):
+        if i > 0:
+            # Time shift event.
+            delta = event[2] - encoded_time
+            mult = int(delta / TIME_SHIFT_INC)
+            if mult > 0:
+                mult = min(mult, TIME_SHIFT_COUNT)
+                tokens.append(128 + 128 + mult)
+            encoded_time += mult * TIME_SHIFT_INC
+
+        # Check different velocity.
+        if event[3] and velocity != event[1]:
+            velocity = event[1]
+            tokens.append(128 + 128 + TIME_SHIFT_COUNT + velocity)
+
+        # Note event.
+        tokens.append(event[0] if event[3] else event[0] + 128)
+
     return tokens
 
 
-def tokens_to_msgs(tokens: torch.Tensor) -> list[AbsMessage]:
-    """
-    Highest probability note is picked.
-    """
+def tokens_to_msgs(tokens: list[int]) -> list[AbsMessage]:
     msgs = []
-    for i in range(tokens.size(0)):
-        note = torch.argmax(tokens[i, :128])
-        start = tokens[i, 128]
-        end = tokens[i, 129]
-        velocity = tokens[i, 130]
-        msgs.append(AbsMessage(note, velocity, start, end))
+    starts = [None] * 128
+    velocities = [0] * 128
+    velocity = 0
+    time = 0
+    for token in tokens:
+        if token < 128:
+            # Note on.
+            starts[token] = time
+            velocities[token] = velocity
+        elif token < 256:
+            # Note off.
+            ind = token - 128
+            if starts[ind] is not None:
+                msgs.append(AbsMessage(ind, velocities[ind], starts[ind], time))
+                starts[ind] = None
+        elif token < 256 + TIME_SHIFT_COUNT:
+            # Time shift.
+            time += (token-128-128) * TIME_SHIFT_INC
+        else:
+            # Velocity.
+            velocity = (token-128-128-TIME_SHIFT_COUNT) / VELOCITY_COUNT
+
     return msgs
