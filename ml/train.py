@@ -35,12 +35,13 @@ def forward_batch(loader, model, criterion, scheduler, epoch: int, train: bool):
     pbar = tqdm(enumerate(loader), total=len(loader), desc=name)
     for i, (x, y) in pbar:
         x, y = x.to(DEVICE), y.to(DEVICE)
-        pred = model(x)
-
+        pred = model(x, y[:, :-1])
         pred = pred.view(-1, ONEHOT_SIZE)
-        y = torch.nn.functional.one_hot(y.view(-1), ONEHOT_SIZE)
-        y = y.float()
-        loss = criterion(pred, y)
+
+        ans = y[:, 1:].reshape(-1)
+        ans = torch.nn.functional.one_hot(ans, ONEHOT_SIZE).float()
+
+        loss = criterion(pred, ans)
 
         lr = scheduler.get_last_lr()[0]
         pbar.set_description(f"{name}: Epoch {epoch+1}/{EPOCHS} | Batch {i+1}/{len(loader)} | Loss {loss.item():.5f} | LR {lr:.5f}")

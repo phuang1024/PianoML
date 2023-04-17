@@ -58,7 +58,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x):
-        x = x + self.pe[:, :x.size(0)]
+        x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
 
@@ -72,20 +72,24 @@ class Model(nn.Module):
             d_model=D_MODEL,
             nhead=N_HEAD,
             num_encoder_layers=ENC_LAYERS,
-            num_decoder_layers=0,
+            num_decoder_layers=DEC_LAYERS,
             dim_feedforward=D_FF,
             batch_first=True,
             dropout=DROPOUT,
         )
         self.output = nn.Sequential(
             nn.Linear(D_MODEL, ONEHOT_SIZE),
-            nn.Softmax(dim=-1),
+            nn.Sigmoid(),
         )
 
-    def forward(self, x):
-        x = self.embedding(x)
+    def forward(self, x, y):
+        x = self.embedding(x) * math.sqrt(D_MODEL)
         x = self.pe(x)
-        mask = self.transformer.generate_square_subsequent_mask(x.size(1)).to(DEVICE)
-        x = self.transformer(x, x, src_mask=mask)
+        y = self.embedding(y) * math.sqrt(D_MODEL)
+        y = self.pe(y)
+
+        mask = self.transformer.generate_square_subsequent_mask(y.size(1)).to(DEVICE)
+        x = self.transformer(x, y, tgt_mask=mask)
         x = self.output(x)
+
         return x
