@@ -146,7 +146,8 @@ class Sequencer:
                 last_time = max([msg[2] for msg in self.messages]) if self.messages else 0
                 with open(os.path.join(ROOT, "out.txt")) as f:
                     for line in f.read().strip().split("\n"):
-                        parts = line.split(" ")
-                        msg = (int(parts[0]), float(parts[1])+last_time, float(parts[2])+last_time)
-                        if 0 <= msg[1] and msg[2] <= self.duration and 0 <= msg[0] < 88:
-                            self.messages.append(msg)
+                        if line:
+                            parts = line.split(" ")
+                            msg = (int(parts[0]), float(parts[1])+last_time, float(parts[2])+last_time)
+                            if 0 <= msg[1] and msg[2] <= self.duration and 0 <= msg[0] < 88:
+                                self.messages.append(msg)

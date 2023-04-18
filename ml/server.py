@@ -27,26 +27,23 @@ import json
 import os
 import struct
 import sys
-import time
 from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(ROOT, "gui"))
 
-import mido
-
 from midi import *
 from net import recv
 from results import load_latest_model, run_model
 
-PORT = 7610
+PORT = 7611
 GEN_LENGTH = 20
 
 
 def handle_client(conn, model):
     length = struct.unpack("<I", conn.recv(4))[0]
-    data = json.loads(conn.recv(length).decode())
+    data = json.loads(recv(conn, length).decode())
     if data["type"] == "autocomplete":
         messages = []
         for msg in data["data"]:

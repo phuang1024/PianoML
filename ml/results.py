@@ -1,5 +1,6 @@
 import argparse
 
+import matplotlib.pyplot as plt
 import torch
 
 from model import *
@@ -23,6 +24,10 @@ def run_model(model, data, length):
     with torch.no_grad():
         for i in range(length):
             output = model(data, data[:, orig_len+i-1:])
+
+            plt.plot(output[0, -1].cpu().numpy())
+            plt.savefig("/tmp/a.png")
+
             _, next_word = torch.max(output[:, -1], dim=1)
             data = torch.cat((data, next_word.view(1, 1)), dim=1)
 

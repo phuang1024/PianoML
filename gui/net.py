@@ -1,13 +1,12 @@
 import time
 
 
-def recv(conn, length: int):
+def recv(conn, length: int, timeout: float = 5):
     data = b""
-    tries = 0
+    start = time.time()
     while len(data) < length:
         time.sleep(0.005)
         data += conn.recv(length - len(data))
-        tries += 1
-        if tries > 1000:
+        if time.time() - start > timeout:
             raise Exception("recv timeout")
     return data

@@ -55,6 +55,7 @@ def train(model, dataset, logdir):
     loader_args = {
         "batch_size": BATCH_SIZE,
         "shuffle": True,
+        "num_workers": 4,
     }
     train_loader = DataLoader(train_dataset, **loader_args)
     test_loader = DataLoader(test_dataset, **loader_args)

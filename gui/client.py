@@ -6,7 +6,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 
 from net import recv
 
-PORT = 7610
+PORT = 7611
 
 
 def parse_input(path):
