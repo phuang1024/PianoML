@@ -88,7 +88,7 @@ def train(model, dataset, logdir):
             avg_loss = total_loss / len(test_loader)
             log.add_scalar("Test loss", avg_loss, step)
 
-        torch.save(model.state_dict(), os.path.join(logdir, f"epoch{epoch+1}.pt"))
+        torch.save(model.state_dict(), os.path.join(logdir, f"epoch.{epoch+1}.pt"))
 
     #sample = next(iter(test_loader))[0]
     #log.add_graph(model, sample.to(DEVICE))
