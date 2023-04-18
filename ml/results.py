@@ -1,6 +1,7 @@
 import argparse
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 from model import *
@@ -25,11 +26,15 @@ def run_model(model, data, length):
         for i in range(length):
             output = model(data, data[:, orig_len+i-1:])
 
+            """
             plt.plot(output[0, -1].cpu().numpy())
             plt.savefig("/tmp/a.png")
+            """
 
-            _, next_word = torch.max(output[:, -1], dim=1)
-            data = torch.cat((data, next_word.view(1, 1)), dim=1)
+            dist = torch.nn.functional.softmax(output[0, -1])
+            next_word = np.random.choice(len(dist), p=dist.cpu().numpy())
+            next_word = torch.tensor([next_word], dtype=torch.long, device=DEVICE).view(1, 1)
+            data = torch.cat((data, next_word), dim=1)
 
     output = data[0, orig_len:].tolist()
     return output
