@@ -98,7 +98,7 @@ def train(model, dataset, logdir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", required=True, help="Path to data directory")
+    parser.add_argument("--data", default="data", help="Path to data directory")
     parser.add_argument("--runs", default="runs", help="Path to tensorboard runs directory")
     args = parser.parse_args()
 

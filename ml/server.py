@@ -61,7 +61,8 @@ def handle_client(conn, model):
 
 
 def main():
-    model = load_latest_model("runs")
+    model, path = load_latest_model("runs")
+    print(f"Loaded model from {path}")
 
     sock = socket(AF_INET, SOCK_STREAM)
     sock.bind(("", PORT))

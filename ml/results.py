@@ -11,7 +11,7 @@ def load_latest_model(runs_dir):
     model = Model().to(DEVICE)
     path = get_last_model(get_last_run(runs_dir))
     model.load_state_dict(torch.load(path))
-    return model
+    return model, path
 
 
 def run_model(model, data, length):
@@ -41,7 +41,8 @@ def main():
     parser.add_argument("--runs", default="runs", help="Path to tensorboard runs directory")
     args = parser.parse_args()
 
-    model = load_latest_model(args.runs)
+    model, path = load_latest_model(args.runs)
+    print(f"Loaded model from {path}")
 
 
 if __name__ == "__main__":
