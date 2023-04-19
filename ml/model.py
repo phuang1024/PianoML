@@ -1,6 +1,9 @@
 import math
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
@@ -39,6 +42,13 @@ class TokenDataset(Dataset):
         #x_oh = torch.nn.functional.one_hot(x, ONEHOT_SIZE)
         #y_oh = torch.nn.functional.one_hot(y, ONEHOT_SIZE)
         return x, y
+
+    def plot_frequency(self):
+        freq = np.zeros((ONEHOT_SIZE,), dtype=int)
+        for i in range(ONEHOT_SIZE):
+            freq[i] = torch.sum(self.tokens == i).item()
+        plt.bar(range(ONEHOT_SIZE), freq)
+        plt.show()
 
 
 class PositionalEncoding(nn.Module):
