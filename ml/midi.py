@@ -1,8 +1,6 @@
 """
 Utilities for converting from MIDI to messages to tokens.
 
-TODO this doesn't work actually; how do we release notes?
-
 MIDI is stored with mido.MidiFile objects.
 
 Messages are represented with AbsMessage objects.
@@ -11,6 +9,8 @@ Tokens follow https://arxiv.org/pdf/1808.03715.pdf
 128 + 128 + TIME_SHIFT_COUNT + VELOCITY_COUNT
 one-hot
 """
+
+import random
 
 import mido
 
@@ -110,6 +110,8 @@ def msgs_to_tokens(msgs: list[AbsMessage]) -> list[int]:
             delta = event[2] - encoded_time
             mult = int(delta / TIME_SHIFT_INC)
             if mult > 0:
+                # Random addition to prevent unbalanced token distribution.
+                mult += random.randint(0, int(TIME_SHIFT_COUNT/4))
                 mult = min(mult, TIME_SHIFT_COUNT)
                 tokens.append(128 + 128 + mult)
             encoded_time += mult * TIME_SHIFT_INC

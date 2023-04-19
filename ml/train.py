@@ -110,8 +110,8 @@ def main():
     print(f"Dataset: {len(dataset)} samples of length {SEQ_LEN}")
     print(f"Model: {num_params} learnable parameters")
 
-    #dataset.plot_frequency()
-    #stop
+    dataset.plot_frequency()
+    stop
 
     train(model, dataset, logdir)
 

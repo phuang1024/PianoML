@@ -50,12 +50,15 @@ def download(args):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("action", choices=["download", "tokenize"])
     parser.add_argument("--data", default="data", help="Output directory.")
     parser.add_argument("-j", type=int, default=8)
     args = parser.parse_args()
 
-    download(args)
-    tokenize(args)
+    if args.action == "download":
+        download(args)
+    elif args.action == "tokenize":
+        tokenize(args)
 
 
 if __name__ == "__main__":
