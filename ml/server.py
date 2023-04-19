@@ -51,8 +51,9 @@ def handle_client(conn, model):
         tokens = msgs_to_tokens(messages)
 
         output = run_model(model, tokens, GEN_LENGTH)
+        print(output)
         messages = []
-        for msg in tokens_to_msgs(output):
+        for msg in tokens_to_msgs(output, end_pending=True):
             messages.append([msg.note, msg.start, msg.end])
 
         data = json.dumps({"data": messages})

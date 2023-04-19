@@ -127,7 +127,11 @@ def msgs_to_tokens(msgs: list[AbsMessage]) -> list[int]:
     return tokens
 
 
-def tokens_to_msgs(tokens: list[int]) -> list[AbsMessage]:
+def tokens_to_msgs(tokens: list[int], end_pending: bool = False) -> list[AbsMessage]:
+    """
+    :param end_pending: Whether to end messages that weren't ended.
+        Such messages would be ended at the final time.
+    """
     msgs = []
     starts = [None] * 128
     velocities = [0] * 128
@@ -150,5 +154,10 @@ def tokens_to_msgs(tokens: list[int]) -> list[AbsMessage]:
         else:
             # Velocity.
             velocity = (token-128-128-TIME_SHIFT_COUNT) / VELOCITY_COUNT
+
+    if end_pending:
+        for i, start in enumerate(starts):
+            if start is not None:
+                msgs.append(AbsMessage(i, velocities[i], start, time))
 
     return msgs

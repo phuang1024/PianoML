@@ -63,6 +63,7 @@ class Sequencer:
             y = 500 - self.ch_to_y(msg[0])
             start = self.t_to_x(msg[1])
             end = self.t_to_x(msg[2])
+            end = max(end, start+3)
             pygame.draw.rect(surface, (60, 255, 60), (start, y, end-start, 6))
 
         # Play/rec notifier

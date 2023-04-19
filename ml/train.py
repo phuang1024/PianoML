@@ -61,7 +61,7 @@ def train(model, dataset, logdir):
     test_loader = DataLoader(test_dataset, **loader_args)
 
     criterion = torch.nn.BCELoss()
-    optim = torch.optim.SGD(model.parameters(), lr=LR)
+    optim = torch.optim.Adam(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=LR_DECAY_STEPS, gamma=LR_DECAY_FAC)
     log = SummaryWriter(logdir)
     print("Saving tensorboard logs to", logdir)
@@ -110,8 +110,8 @@ def main():
     print(f"Dataset: {len(dataset)} samples of length {SEQ_LEN}")
     print(f"Model: {num_params} learnable parameters")
 
-    dataset.plot_frequency()
-    stop
+    #dataset.plot_frequency()
+    #stop
 
     train(model, dataset, logdir)
 
