@@ -107,11 +107,12 @@ def main():
     dataset = TokenDataset(args.data)
     logdir = get_run_directory(args.runs)
 
+    print(f"Dataset: {len(dataset)} samples of length {SEQ_LEN}")
+    print(f"Model: {num_params} learnable parameters")
+
     #dataset.plot_frequency()
     #stop
 
-    print(f"Dataset: {len(dataset)} samples of length {SEQ_LEN}")
-    print(f"Model: {num_params} learnable parameters")
     train(model, dataset, logdir)
 
 

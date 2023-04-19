@@ -44,9 +44,10 @@ class TokenDataset(Dataset):
         return x, y
 
     def plot_frequency(self):
+        values, counts = torch.unique(self.tokens, return_counts=True)
         freq = np.zeros((ONEHOT_SIZE,), dtype=int)
-        for i in range(ONEHOT_SIZE):
-            freq[i] = torch.sum(self.tokens == i).item()
+        for v, c in zip(values, counts):
+            freq[v] = c
         plt.bar(range(ONEHOT_SIZE), freq)
         plt.show()
 
