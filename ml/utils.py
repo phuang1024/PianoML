@@ -1,4 +1,35 @@
 import os
+from multiprocessing import Process
+
+from tqdm import tqdm
+
+
+def file_counter(directory, ext):
+    def func():
+        return len([f for f in os.listdir(directory) if f.endswith(ext)])
+    return func
+
+def multiprocess(target, num_jobs, args, total, progress, desc=""):
+    """
+    Start concurrent processes.
+    :param target: Worker function.
+    :param num_jobs: Number of processes to start.
+    :param args: List of arguments for each process.
+    :param total: Total number of items to process.
+    :param progress: Function that returns how many things currently done.
+    :param desc: Description for progress bar.
+    """
+    procs = []
+    for i in range(num_jobs):
+        p = Process(target=target, args=args[i])
+        p.start()
+        procs.append(p)
+
+    pbar = tqdm(total=total, desc=desc)
+    while any(p.is_alive() for p in procs):
+        num_done = progress()
+        pbar.update(num_done - pbar.n)
+    pbar.close()
 
 
 def _get_max_num(runs_dir) -> int:

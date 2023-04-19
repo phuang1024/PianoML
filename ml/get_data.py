@@ -1,113 +1,16 @@
 import argparse
 import os
-import requests
-from multiprocessing import Process
+import shutil
+import tempfile
+from subprocess import run
 
 import mido
 import torch
-from tqdm import tqdm
 
 from midi import *
+from utils import file_counter, multiprocess
 
-URL = "https://www.midiworld.com/download/{}"
-
-
-def file_counter(directory, ext):
-    def func():
-        return len([f for f in os.listdir(directory) if f.endswith(ext)])
-    return func
-
-
-def multiprocess(target, num_jobs, args, total, progress, desc=""):
-    """
-    Start concurrent processes.
-    :param target: Worker function.
-    :param num_jobs: Number of processes to start.
-    :param args: List of arguments for each process.
-    :param total: Total number of items to process.
-    :param progress: Function that returns how many things currently done.
-    :param desc: Description for progress bar.
-    """
-    procs = []
-    for i in range(num_jobs):
-        p = Process(target=target, args=args[i])
-        p.start()
-        procs.append(p)
-
-    pbar = tqdm(total=total, desc=desc)
-    while any(p.is_alive() for p in procs):
-        num_done = progress()
-        pbar.update(num_done - pbar.n)
-    pbar.close()
-
-
-def binsearch():
-    """
-    Find number of MIDI files available.
-    """
-    def works(n):
-        url = URL.format(n)
-        try:
-            r = requests.get(url)
-        except requests.exceptions.ConnectionError:
-            return False
-        return r.status_code == 200
-
-    min = 1
-    max = 8000
-    while True:
-        if max - min <= 1:
-            if works(max):
-                return max
-            return min
-        mid = (min + max) // 2
-        if works(mid):
-            min = mid
-        else:
-            max = mid
-
-def download_worker(outdir, jobs):
-    """
-    Download MIDI files.
-    """
-    for i in jobs:
-        url = URL.format(i)
-        try:
-            r = requests.get(url)
-        except EOFError:
-            print(f"Failed to retrieve MIDI {i}")
-            continue
-
-        if r.status_code == 200:
-            path = os.path.join(outdir, f"{i}.mid")
-            with open(path, "wb") as f:
-                f.write(r.content)
-
-            # Check consistency
-            try:
-                midi = mido.MidiFile(path)
-                tokens = msgs_to_tokens(midi_to_msgs(midi))
-            except Exception as e:
-                os.remove(path)
-                print(f"Error on MIDI {i}: {e}")
-
-                if isinstance(e, KeyboardInterrupt):
-                    raise
-
-def download(args):
-    count = args.c
-    if count < 0:
-        print("Searching for number of MIDI files...")
-        count = binsearch()
-    print(f"Downloading {count} MIDI files.")
-
-    files = list(range(1, count+1))
-    worker_args = [files[i::args.j] for i in range(args.j)]
-    worker_args = list(zip([args.output]*args.j, worker_args))
-
-    multiprocess(download_worker, args.j, worker_args, count, file_counter(args.output, ".mid"), "Downloading")
-
-    print(f"Downloaded {count} MIDI files to {args.output}.")
+URL = "https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0-midi.zip"
 
 
 def tokenize_worker(files):
@@ -119,25 +22,40 @@ def tokenize_worker(files):
             torch.save(tokens, fp)
 
 def tokenize(args):
-    files = [f for f in os.listdir(args.output) if f.endswith(".mid")]
+    files = [f for f in os.listdir(args.data) if f.endswith(".mid")]
     print(f"Tokenizing {len(files)} MIDI files.")
-    files = [os.path.join(args.output, f) for f in files]
+    files = [os.path.join(args.data, f) for f in files]
     worker_args = [[files[i::args.j]] for i in range(args.j)]
-    multiprocess(tokenize_worker, args.j, worker_args, len(files), file_counter(args.output, ".pt"), "Tokenizing")
+    multiprocess(tokenize_worker, args.j, worker_args, len(files), file_counter(args.data, ".pt"), "Tokenizing")
+
+
+def download(args):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = os.path.join(tmpdir, "maestro.zip")
+        print("Downloading MIDI files.")
+        run(["wget", "-O", zip_path, URL], check=True)
+        print("Unzipping MIDI files.")
+        run(["unzip", zip_path], cwd=tmpdir, check=True)
+        print("Copying MIDI files.")
+        i = 0
+        for root, dirs, files in os.walk(tmpdir):
+            for f in files:
+                if f.endswith((".midi", ".mid")):
+                    out_path = os.path.join(args.data, f"{i}.mid")
+                    shutil.copy(os.path.join(root, f), out_path)
+                    i += 1
+
+    print(f"Downloaded {i} MIDI files.")
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("download", "tokenize"))
-    parser.add_argument("output", help="Output directory")
-    parser.add_argument("-c", type=int, default=-1, help="Num of files to process. Negative = all.")
+    parser.add_argument("--data", default="data", help="Output directory.")
     parser.add_argument("-j", type=int, default=8)
     args = parser.parse_args()
 
-    if args.action == "download":
-        download(args)
-    elif args.action == "tokenize":
-        tokenize(args)
+    download(args)
+    tokenize(args)
 
 
 if __name__ == "__main__":
