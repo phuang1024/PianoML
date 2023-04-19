@@ -23,6 +23,7 @@ Response is:
 }
 """
 
+import argparse
 import json
 import os
 import struct
@@ -34,6 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(ROOT, "gui"))
 
 from midi import *
+from model import *
 from net import recv
 from results import load_latest_model, run_model
 
@@ -62,8 +64,17 @@ def handle_client(conn, model):
 
 
 def main():
-    model, path = load_latest_model("runs")
-    print(f"Loaded model from {path}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", help="Path to model. If empty, uses latest run.")
+    args = parser.parse_args()
+
+    if args.model is None:
+        model, path = load_latest_model("runs")
+        print(f"Loaded latest model from {path}")
+    else:
+        model = Model().to(DEVICE)
+        model.load_state_dict(torch.load(args.model))
+        print(f"Loaded model from {args.model}")
 
     sock = socket(AF_INET, SOCK_STREAM)
     sock.bind(("", PORT))
